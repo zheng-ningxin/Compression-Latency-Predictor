@@ -1,7 +1,9 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
+import os
 import logging
 import torch
+from .engine.onnxruntime import *
 
 _logger = logging.getLogger(__name__)
 
@@ -101,4 +103,18 @@ def get_tensors_from(args):
     return tensors
 
 def measure_latency(model, dummy_input, cfg):
-    pass
+    """
+    measure the latency for the model.
+    """
+    data_dir = cfg.get('data_dir', './data')
+    os.makedirs(data_dir, exist_ok=True)
+    if cfg['engine'] == 'onnxruntime':
+        onnx_path = os.path.join(data_dir, 'onnx.onnx')
+        torch.onnx.export(model, dummy_input, onnx_path)
+        if cfg['device'] == 'gpu':
+            assert torch.cuda.is_available()
+            # export the onnx model
+        elif cfg['device'] == 'cpu':
+            latency = onnx_run_cpu(onnx_path, dummy_input)
+        else:
+            pass

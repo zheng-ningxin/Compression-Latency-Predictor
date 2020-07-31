@@ -7,12 +7,13 @@ import random
 import logging
 import torch
 import torch.nn as nn
-import torch.Tensor as Tensor
+from torch import Tensor
 from nni._graph_utils import TorchModuleGraph
-from nni.compression.torch.utils.shape_dependency import *
+from nni.compression.torch.utils.shape_dependency import ChannelDependency, GroupDependency
 from .util import *
 
 _logger = logging.getLogger(__name__)
+_logger.setLevel(logging.INFO)
 
 
 class LatencyPredictor:
@@ -46,9 +47,9 @@ class LatencyPredictor:
             the example input tensor for the model.
 
         """
-        with torch.onnx.set_training(model, False):
+        with torch.onnx.set_training(self.bound_model, False):
             # We need to trace the model in this way, else it will have problems
-            traced = torch.jit.trace(model, dummy_input)
+            traced = torch.jit.trace(self.bound_model, self.dummy_input)
         self.channel_depen = ChannelDependency(traced_model=traced)
         self.group_depen = GroupDependency(traced_model=traced)
         self.graph = self.channel_depen.graph
@@ -73,8 +74,9 @@ class LatencyPredictor:
             of each convolutional layers.
             For example, {'conv1' : 256, 'conv2':512 } 
         """
+        print('In genrate')
 
-        def new_forward(ori_forward, out_channels):
+        def new_forward(ori_forward, new_size):
             def forward(*args, **kwargs):
                 _inputs = get_tensors_from(args)
                 _inputs.extend(get_tensors_from(kwargs))
@@ -83,56 +85,74 @@ class LatencyPredictor:
                 module = args[0]
                 module.input_shape = _inputs[0].size()
                 out = ori_forward(*args, **kwargs)
-                N_out, C_out, H_out, W_out = out.size()
-                module.output_shape = (N_out, out_channels, H_out, W_out)
+                output_shape = list(out.size())
+                # modify the shape of the output tensor according to
+                # the new_size
+                for dim, _size in new_size:
+                    output_shape[dim] = _size
+                module.output_shape = output_shape
+                # torch.zeros can use the list to specify the shape
                 return torch.zeros(module.output_shape)
             return forward
         self.ori_forwards = {}
+        print('test point1')
         model = copy.deepcopy(self.bound_model)
         for name, module in model.named_modules():
-            if not isinstance(module, nn.Conv2d):
-                return
+            if not isinstance(module, nn.Conv2d) and \
+                    not isinstance(module, nn.Linear):
+                continue
             module = self.name2module[name]
-            assert isinstance(module, nn.Conv2d)
+            # TODO notice the Linear Layer
             _forward = getattr(module, 'forward')
             self.ori_forwards[name] = _forward
             if name in channel_cfg:
-                _new_forward = new_forward(_forward, channel_cfg[name])
+                # The structure pruning of
+                # Conv2D and Linear are both at the dimension-1
+                _new_forward = new_forward(_forward, {1: channel_cfg[name]})
             else:
-                _new_forward = new_forward(_forward, module.out_channels)
+                _count = module.out_channels if isinstance(
+                    module, nn.Conv2d) else module.out_features
+                _new_forward = new_forward(_forward, {1: _count})
             setattr(module, 'forward', _new_forward)
         try:
+            print('$$$$$$$')
             model(self.dummy_input)
         except Exception as err:
             _logger.warn('The updated model may have shape conflicts')
             _logger.warn(err)
+            print(err)
+            print('###########')
             _logger.warn(channel_cfg)
             # the model is not valid, it has shape conflict
             # under the
             return None
-        # replace the original conv layers
+        print('$$$$$$$$$$$')
+        # replace the original conv/Linuer layers
         for name, module in model.named_modules():
-            if not isinstance(module, nn.Conv2d):
+            if not (isinstance(module, nn.Conv2d) or isinstance(module, nn.Linear)):
                 continue
-            if module.in_channels == module.input_shape[1] and\
-                    module.out_channels == module.output_shape[1]:
+            ori_in_channels = module.in_channels if isinstance(
+                module, nn.Conv2d) else module.in_features
+            ori_out_channels = module.out_channels if isinstance(
+                module, nn.Conv2d) else module.out_features
+
+            if ori_in_channels == module.input_shape[1] and\
+                    ori_out_channels == module.output_shape[1]:
                 # no need to replace this layer, only reset its
                 # original forward function
                 setattr(module, 'forward', self.ori_forwards[name])
                 continue
-            new_attrs = {
-                'in_channels': module.input_shape[1], 'out_channels': module.output_shape[1]}
-            _new_conv = new_conv2d(module, new_attributes=new_attrs)
+            _new_module = new_module(module)
             super_module, leaf_module = get_module_by_name(model, name)
-            setattr(super_module, name.split('.')[-1], _new_conv)
+            setattr(super_module, name.split('.')[-1], _new_module)
         return model
-        
+
     def generate_channel_cfg(self):
         channel_cfg = {}
         channel_d_sets = self.channel_depen.dependency_sets
-        group_d_sets = self.group_depen.dependency_sets
+        group_d_sets = self.group_depen.dependency
         for _set in channel_d_sets:
-            _max_group = max([group_d_sets[name]] for name in _set)
+            _max_group = max([group_d_sets[name] for name in _set])
             # the filter count of all these layers should be
             # divisible by the _max_group
             tmp_name = next(iter(_set))
@@ -144,14 +164,13 @@ class LatencyPredictor:
                 # prune these layers
                 continue
             else:
-                sampled_count = int((random.uniform() * f_num) // _max_group)
+                sampled_count = int(
+                    (random.uniform(0, 1) * f_num) // _max_group)
                 if sampled_count == 0:
                     sampled_count = _max_group
                 for layer in _set:
                     channel_cfg[layer] = sampled_count
         return channel_cfg
-                
-            
 
     def build(self, cfgpath):
         """
@@ -171,18 +190,20 @@ class LatencyPredictor:
         # of the channels
         assert os.path.exists(cfgpath)
         with open(cfgpath, 'r') as cfg_f:
-            cfg = yaml.load(cfg_f)
+            cfg = yaml.safe_load(cfg_f)
         already_sampled = 0
 
         while already_sampled < cfg['sample_count']:
+            print(already_sampled)
             channel_cfg = self.generate_channel_cfg()
+            print(channel_cfg)
             net = self.generate_model(channel_cfg)
             if net is None:
                 # generated model is not legal
                 continue
             already_sampled += 1
-            latency = measure_latency(model, cfg)
-                    
+            latency = measure_latency(net, self.dummy_input, cfg)
+            _logger.info('Latency : %f', latency)
 
     def predict(self, model):
         if self.predictor is None:

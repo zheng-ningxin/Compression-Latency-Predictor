@@ -3,6 +3,7 @@
 import os
 import logging
 import torch
+import torch.nn as nn
 from .engine.onnxruntime import *
 
 _logger = logging.getLogger(__name__)
@@ -30,6 +31,38 @@ def get_module_by_name(model, module_name):
     leaf_module = getattr(model, name_list[-1])
     return model, leaf_module
 
+def new_module(module):
+    if isinstance(module, nn.Conv2d):
+        new_attrs = {'in_channels': module.input_shape[1], 'out_channels':module.output_shape[1]}
+        return new_conv2d(module, new_attrs)
+    elif isinstance(module, nn.Linear):
+        new_attrs = {'in_features': module.input_shape[1], 'out_features':module.output_shape[1]}
+        return new_linear(module, new_attrs)
+
+def new_linear(linear, new_attributes):
+    """
+    Parameters
+    ----------
+    linear : torch.nn.Linear
+        The linear module to be replace
+    new_attributes: dict
+        The dict object that specify which
+        attribute should be updated.
+
+    Returns
+    -------
+    torch.nn.Linear
+        The new linear module
+    """
+    attribute_dict = {
+        'in_features': linear.in_features,
+        'out_features': linear.out_features,
+        'bias': linear.bias is not None
+    }
+    attribute_dict.update(new_attributes)
+    new_linear = torch.nn.Linear(**attribute_dict)
+    new_linear.to(linear.weight.device)
+    return new_linear
 
 def new_conv2d(conv, new_attributes):
     """
@@ -41,6 +74,9 @@ def new_conv2d(conv, new_attributes):
     ----------
     conv : torch.nn.Conv2d
         The original conv layer
+    new_attributes: dict
+        The dict object that specify which
+        attribute should be updated.
 
     Returns
     -------

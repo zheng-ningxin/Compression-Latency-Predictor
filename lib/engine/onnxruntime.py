@@ -4,7 +4,7 @@ import time
 import numpy as np
 import onnxruntime
 
-def onnx_run_cpu(onnx_model):
+def onnx_run_cpu(onnx_model, dummy_input):
     
     sess = onnxruntime.InferenceSession(onnx_model)
     inputs = sess.get_inputs()
@@ -19,8 +19,9 @@ def onnx_run_cpu(onnx_model):
     data = {}
     for i, name in enumerate(_in_names):
         x = np.zeros(_in_shapes[i])
-        x = x.astype(_in_types[i])
-        data[name] = x
+        # x = x.astype(_in_types[i])
+        # data[name] = dummy_input
+        data[name] = dummy_input.detach().cpu().numpy()
     start_time = time.time()
     result = sess.run(None, data)
     end_time = time.time()

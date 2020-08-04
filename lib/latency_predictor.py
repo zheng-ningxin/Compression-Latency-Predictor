@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 import os
+import traceback
 import copy
 import yaml
 import random
@@ -10,6 +11,8 @@ import torch.nn as nn
 from torch import Tensor
 from nni._graph_utils import TorchModuleGraph
 from nni.compression.torch.utils.shape_dependency import ChannelDependency, GroupDependency
+from nni.compression.torch import Constrained_L1FilterPruner
+from nni.compression.torch import ModelSpeedup
 from .util import *
 
 _logger = logging.getLogger(__name__)
@@ -35,6 +38,9 @@ class LatencyPredictor:
         self.parse_model()
         # the latency predictor for this model
         self.predictor = None
+        self.training = self.bound_model.training
+        self.bound_model.eval()
+
 
     def parse_model(self):
         """
@@ -60,7 +66,7 @@ class LatencyPredictor:
             if isinstance(module, nn.Conv2d):
                 self.filter_count[name] = module.out_channels
 
-    def generate_model(self, channel_cfg):
+    def generate_model(self, cfg):
         """
         generate the models according to the channel_cfg.
         The generated model has the same network architecture
@@ -69,108 +75,53 @@ class LatencyPredictor:
 
         Parameters
         ----------
-        channel_cfg: dict
-            A dict object that stores the number of the out_channels
-            of each convolutional layers.
-            For example, {'conv1' : 256, 'conv2':512 } 
+        cfg: list
+            cfg for the pruner.
         """
-        print('In genrate')
-
-        def new_forward(ori_forward, new_size):
-            def forward(*args, **kwargs):
-                _inputs = get_tensors_from(args)
-                _inputs.extend(get_tensors_from(kwargs))
-                # the input of nn.Conv2d only has one tensor
-                assert len(_inputs) == 1
-                module = args[0]
-                module.input_shape = _inputs[0].size()
-                out = ori_forward(*args, **kwargs)
-                output_shape = list(out.size())
-                # modify the shape of the output tensor according to
-                # the new_size
-                for dim, _size in new_size:
-                    output_shape[dim] = _size
-                module.output_shape = output_shape
-                # torch.zeros can use the list to specify the shape
-                return torch.zeros(module.output_shape)
-            return forward
-        self.ori_forwards = {}
-        print('test point1')
+  
         model = copy.deepcopy(self.bound_model)
-        for name, module in model.named_modules():
-            if not isinstance(module, nn.Conv2d) and \
-                    not isinstance(module, nn.Linear):
-                continue
-            module = self.name2module[name]
-            # TODO notice the Linear Layer
-            _forward = getattr(module, 'forward')
-            self.ori_forwards[name] = _forward
-            if name in channel_cfg:
-                # The structure pruning of
-                # Conv2D and Linear are both at the dimension-1
-                _new_forward = new_forward(_forward, {1: channel_cfg[name]})
-            else:
-                _count = module.out_channels if isinstance(
-                    module, nn.Conv2d) else module.out_features
-                _new_forward = new_forward(_forward, {1: _count})
-            setattr(module, 'forward', _new_forward)
+        pruner = Constrained_L1FilterPruner(model, cfg, self.dummy_input)
+        pruner.compress()
+        _tmp_ck_path = os.path.join(self.ck_dir, 'tmp.pth')
+        _tmp_mask_path = os.path.join(self.ck_dir, 'mask')
+        pruner.export_model(_tmp_ck_path, _tmp_mask_path)
+        pruner._unwrap_model()
+        ms = ModelSpeedup(model, self.dummy_input, _tmp_mask_path)
+        ms.speedup_model()
+
         try:
             print('$$$$$$$')
             model(self.dummy_input)
+            print('Success inference')
         except Exception as err:
             _logger.warn('The updated model may have shape conflicts')
             _logger.warn(err)
             print(err)
             print('###########')
-            _logger.warn(channel_cfg)
+            traceback.print_exc()
             # the model is not valid, it has shape conflict
             # under the
             return None
-        print('$$$$$$$$$$$')
-        # replace the original conv/Linuer layers
-        for name, module in model.named_modules():
-            if not (isinstance(module, nn.Conv2d) or isinstance(module, nn.Linear)):
-                continue
-            ori_in_channels = module.in_channels if isinstance(
-                module, nn.Conv2d) else module.in_features
-            ori_out_channels = module.out_channels if isinstance(
-                module, nn.Conv2d) else module.out_features
 
-            if ori_in_channels == module.input_shape[1] and\
-                    ori_out_channels == module.output_shape[1]:
-                # no need to replace this layer, only reset its
-                # original forward function
-                setattr(module, 'forward', self.ori_forwards[name])
-                continue
-            _new_module = new_module(module)
-            super_module, leaf_module = get_module_by_name(model, name)
-            setattr(super_module, name.split('.')[-1], _new_module)
         return model
 
-    def generate_channel_cfg(self):
-        channel_cfg = {}
+    def generate_cfg(self):
+        cfglist = []
         channel_d_sets = self.channel_depen.dependency_sets
-        group_d_sets = self.group_depen.dependency
+        # group_d_sets = self.group_depen.dependency
         for _set in channel_d_sets:
-            _max_group = max([group_d_sets[name] for name in _set])
-            # the filter count of all these layers should be
-            # divisible by the _max_group
-            tmp_name = next(iter(_set))
-            f_num = self.filter_count[tmp_name]
-            # TODO double check how to handle the banlance
-            # between pruning and not pruning
+
             if random.uniform(0, 1) > 0.5:
                 # there is 50% probability that we donnot
                 # prune these layers
                 continue
             else:
-                sampled_count = int(
-                    (random.uniform(0, 1) * f_num) // _max_group)
-                if sampled_count == 0:
-                    sampled_count = _max_group
+                sparsity = 0
+                while sparsity <= 0 or sparsity >= 1.0:
+                    sparsity = random.uniform(0, 1)            
                 for layer in _set:
-                    channel_cfg[layer] = sampled_count
-        return channel_cfg
+                    cfglist.append({'op_types':['Conv2d'], 'op_names':[layer], 'sparsity':sparsity})
+        return cfglist
 
     def build(self, cfgpath):
         """
@@ -192,12 +143,13 @@ class LatencyPredictor:
         with open(cfgpath, 'r') as cfg_f:
             cfg = yaml.safe_load(cfg_f)
         already_sampled = 0
-
+        ck_dir = cfg.get('checkpoint_dir', '/tmp')
+        os.makedirs(ck_dir, exist_ok=True)
+        self.ck_dir = ck_dir
         while already_sampled < cfg['sample_count']:
             print(already_sampled)
-            channel_cfg = self.generate_channel_cfg()
-            print(channel_cfg)
-            net = self.generate_model(channel_cfg)
+            cfglist = self.generate_cfg()
+            net = self.generate_model(cfglist)
             if net is None:
                 # generated model is not legal
                 continue

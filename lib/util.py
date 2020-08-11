@@ -56,8 +56,10 @@ def measure_latency(model, dummy_input, cfg):
         torch.onnx.export(model, dummy_input, onnx_path)
         if cfg['device'] == 'gpu':
             assert torch.cuda.is_available()
-            # export the onnx model
+            latency = onnx_run_gpu(onnx_path, dummy_input)
         elif cfg['device'] == 'cpu':
+            # onnx_path = os.path.join(data_dir, 'onnx.onnx')
+            # torch.onnx.export(model.to('cpu'), dummy_input.to('cpu'), onnx_path)
             latency = onnx_run_cpu(onnx_path, dummy_input)
         else:
             pass
@@ -66,3 +68,24 @@ def measure_latency(model, dummy_input, cfg):
 
 def to_numpy(tensor):
     return tensor.detach().cpu().numpy() if tensor.requires_grad else tensor.cpu().numpy()
+
+
+def get_channel_list(model):
+    """
+    Return the channel numbers of the convolutional layers
+    of the model.
+
+    Parameter
+    ---------
+    model: nn.Module
+        the target model to predict the latency.
+    Returns
+    -------
+    channels: list
+        the channel numbers of the conv layers in the model.
+    """
+    channels = []
+    for name, module in model.named_modules():
+        if isinstance(module, nn.Conv2d):
+            channels.append(module.out_channels)
+    return channels

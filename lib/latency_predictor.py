@@ -111,7 +111,7 @@ class LatencyPredictor:
         # group_d_sets = self.group_depen.dependency
         for _set in channel_d_sets:
 
-            if random.uniform(0, 1) > 0.5:
+            if random.uniform(0, 1) > 0.7:
                 # there is 50% probability that we donnot
                 # prune these layers
                 continue
@@ -122,6 +122,7 @@ class LatencyPredictor:
                 for layer in _set:
                     cfglist.append({'op_types':['Conv2d'], 'op_names':[layer], 'sparsity':sparsity})
         return cfglist
+
 
     def build(self, cfgpath):
         """
@@ -156,6 +157,7 @@ class LatencyPredictor:
             already_sampled += 1
             latency = measure_latency(net, self.dummy_input, cfg)
             _logger.info('Latency : %f', latency)
+            self.latencies = latency
 
     def predict(self, model):
         if self.predictor is None:

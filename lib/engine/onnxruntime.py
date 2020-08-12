@@ -47,7 +47,7 @@ def onnx_run_gpu(onnx_model, dummy_input, runtimes=3):
         x = np.zeros(_in_shapes[i])
         # x = x.astype(_in_types[i])
         # data[name] = dummy_input
-        data[name] = dummy_input.detach().cuda().numpy()
+        data[name] = dummy_input.detach().cpu().numpy()
     latencies = []
     for rid in range(runtimes):
         start_time = time.time()

@@ -1,4 +1,5 @@
-sample_count: 5000
+sample_count: 10
 device: cpu
 engine: onnxruntime
 checkpoint_dir: ./data
+regression_algo: randomforest

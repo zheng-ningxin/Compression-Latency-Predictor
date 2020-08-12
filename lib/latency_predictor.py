@@ -3,12 +3,15 @@
 import os
 import traceback
 import copy
+import json
 import yaml
 import random
 import logging
 import torch
 import torch.nn as nn
 from torch import Tensor
+from sklearn.ensemble import RandomForestRegressor
+
 from nni._graph_utils import TorchModuleGraph
 from nni.compression.torch.utils.shape_dependency import ChannelDependency, GroupDependency
 from nni.compression.torch import Constrained_L1FilterPruner
@@ -41,7 +44,6 @@ class LatencyPredictor:
         self.training = self.bound_model.training
         self.bound_model.eval()
 
-
     def parse_model(self):
         """
         parse the model and find the target
@@ -65,6 +67,7 @@ class LatencyPredictor:
             self.name2module[name] = module
             if isinstance(module, nn.Conv2d):
                 self.filter_count[name] = module.out_channels
+        self.measured_data = []
 
     def generate_model(self, cfg):
         """
@@ -78,7 +81,7 @@ class LatencyPredictor:
         cfg: list
             cfg for the pruner.
         """
-  
+
         model = copy.deepcopy(self.bound_model)
         pruner = Constrained_L1FilterPruner(model, cfg, self.dummy_input)
         pruner.compress()
@@ -118,11 +121,11 @@ class LatencyPredictor:
             else:
                 sparsity = 0
                 while sparsity <= 0 or sparsity >= 1.0:
-                    sparsity = random.uniform(0, 1)            
+                    sparsity = random.uniform(0, 1)
                 for layer in _set:
-                    cfglist.append({'op_types':['Conv2d'], 'op_names':[layer], 'sparsity':sparsity})
+                    cfglist.append({'op_types': ['Conv2d'], 'op_names': [
+                                   layer], 'sparsity': sparsity})
         return cfglist
-
 
     def build(self, cfgpath):
         """
@@ -156,8 +159,22 @@ class LatencyPredictor:
                 continue
             already_sampled += 1
             latency = measure_latency(net, self.dummy_input, cfg)
-            _logger.info('Latency : %f', latency)
-            self.latencies = latency
+            _logger.info('Latency : %f', sum(latency)/len(latency))
+            print('Measured Latency', latency)
+            self.measured_data.append((get_channel_list(net), latency))
+        # save the measured data to the checkpoint dirpath
+        with open(os.path.join(ck_dir, 'raw_data.json'), 'w') as jf:
+            json.dump(self.measured_data, jf)
+        # build the latency predictor
+        regression_algo = cfg.get('regression_algo', 'randomforest')
+        if regression_algo == 'randomforest':
+            self.predictor = RandomForestRegressor()
+        data = []
+        label = []
+        for channel_cfg, latencies in self.measured_data:
+            data.append(channel_cfg)
+            label.append(sum(latencies) / len(latencies))
+        self.predictor.fit(data, label)
 
     def predict(self, model):
         if self.predictor is None:

@@ -4,3 +4,4 @@ engine: onnxruntime
 checkpoint_dir: ./data
 regression_algo: randomforest
 repeat_times: 100
+warmup_ratio: 0.1

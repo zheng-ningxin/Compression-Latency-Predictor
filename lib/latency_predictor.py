@@ -8,9 +8,9 @@ import yaml
 import random
 import logging
 import torch
+import joblib
 import torch.nn as nn
 from torch import Tensor
-from sklearn.ensemble import RandomForestRegressor
 
 from nni._graph_utils import TorchModuleGraph
 from nni.compression.torch.utils.shape_dependency import ChannelDependency, GroupDependency
@@ -167,21 +167,35 @@ class LatencyPredictor:
             json.dump(self.measured_data, jf)
         # build the latency predictor
         regression_algo = cfg.get('regression_algo', 'randomforest')
-        if regression_algo == 'randomforest':
-            self.predictor = RandomForestRegressor()
+        self.predictor = create_predictor(regression_algo)
+        if self.predictor is None:
+            raise RuntimeError('Not Supported regression algorithm')
         data = []
         label = []
         for channel_cfg, latencies in self.measured_data:
             data.append(channel_cfg)
-            label.append(sum(latencies) / len(latencies))
+            _start, _end = 0, len(latencies)
+            if 'warmup_ratio' in cfg:
+                _start = cfg['warmup_ratio'] * _end
+            label.append(sum(latencies[_start:]) / len(latencies[_start:]))
         self.predictor.fit(data, label)
 
     def predict(self, model):
         if self.predictor is None:
+            _logger.error('Please build the predictor or load an existing predictor first')
             return None
+        n_channels = get_channel_list(model)
+        latency = self.predictor.predict(n_channels)
+        return latency
 
     def load(self, ckpath):
-        pass
+        """
+        load an existing predictor.
+        """
+        self.predictor = joblib.load(ckpath)
 
     def export(self, savepath):
-        pass
+        """
+        export the predictor model to the specified path.
+        """
+        joblib.dump(self.predictor, savepath)

@@ -5,44 +5,10 @@ import logging
 import torch
 import torch.nn as nn
 from .engine.onnxruntime import *
+from sklearn.ensemble import RandomForestRegressor
+
 
 _logger = logging.getLogger(__name__)
-
-
-def get_tensors_from(args):
-    """
-    find all the tensors in the args. args may be a list or a dict
-    object.
-
-    Parameters
-    ----------
-    args: dict or list
-        A list or a dict object that may contains Tensors.
-    Returns
-    -------
-    tensors: list
-        List of the torch.Tensors find in args
-    """
-    tensors = []
-    if isinstance(args, dict):
-        # some layers may return their output as a dict
-        # ex. the IntermediateLayerGetter in the face detection jobs.
-        for _, val in args.items():
-            if isinstance(val, torch.Tensor):
-                tensors.append(val)
-            else:
-                tensors.extend(get_tensors_from(val))
-    elif isinstance(args, list) or isinstance(args, tuple):
-        # list or tuple
-        for item in args:
-            if isinstance(item, torch.Tensor):
-                tensors.append(item)
-            else:
-                tensors.extend(get_tensors_from(item))
-    elif isinstance(args, torch.Tensor) or isinstance(args, torch.autograd.Variable):
-        # if the output is a already a tensor/variable, then return itself
-        tensors.append(args)
-    return tensors
 
 
 def measure_latency(model, dummy_input, cfg):
@@ -88,3 +54,8 @@ def get_channel_list(model):
         if isinstance(module, nn.Conv2d):
             channels.append(module.out_channels)
     return channels
+
+def create_predictor(algo):
+    if algo == 'randomforest':
+        return RandomForestRegressor()
+    return None

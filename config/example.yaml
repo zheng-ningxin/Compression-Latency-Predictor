@@ -3,3 +3,4 @@ device: cpu
 engine: onnxruntime
 checkpoint_dir: ./data
 regression_algo: randomforest
+repeat_times: 100

@@ -51,16 +51,15 @@ def measure_latency(model, dummy_input, cfg):
     """
     data_dir = cfg.get('data_dir', './data')
     os.makedirs(data_dir, exist_ok=True)
+    repeat_times = cfg.get('repeat_times', 10)
     if cfg['engine'] == 'onnxruntime':
         onnx_path = os.path.join(data_dir, 'onnx.onnx')
         torch.onnx.export(model, dummy_input, onnx_path)
         if cfg['device'] == 'gpu':
             assert torch.cuda.is_available()
-            latency = onnx_run_gpu(onnx_path, dummy_input)
+            latency = onnx_run_gpu(onnx_path, dummy_input, runtimes=repeat_times)
         elif cfg['device'] == 'cpu':
-            # onnx_path = os.path.join(data_dir, 'onnx.onnx')
-            # torch.onnx.export(model.to('cpu'), dummy_input.to('cpu'), onnx_path)
-            latency = onnx_run_cpu(onnx_path, dummy_input)
+            latency = onnx_run_cpu(onnx_path, dummy_input, run_times=repeat_times)
         else:
             pass
     return latency

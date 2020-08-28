@@ -160,7 +160,7 @@ class LatencyPredictor:
             already_sampled += 1
             module_level = cfg.get('submodule_level', 0)
             latency = measure_latency(net, self.dummy_input, cfg, level=module_level)
-            _logger.info('Latency : %f', sum(latency)/len(latency))
+            _logger.info('Latency : %f', sum(latency['model'])/len(latency['model']))
             print('Measured Latency', latency)
             self.measured_data.append((get_channel_list(net), latency))
         # save the measured data to the checkpoint dirpath

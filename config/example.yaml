@@ -1,7 +1,7 @@
-sample_count: 10
+sample_count: 5000
 device: cpu
 engine: onnxruntime
-checkpoint_dir: ./data
+checkpoint_dir: ./data_resnet101
 regression_algo: randomforest
 repeat_times: 100
 warmup_ratio: 0.1

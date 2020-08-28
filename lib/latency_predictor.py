@@ -147,7 +147,7 @@ class LatencyPredictor:
         with open(cfgpath, 'r') as cfg_f:
             cfg = yaml.safe_load(cfg_f)
         already_sampled = 0
-        ck_dir = cfg.get('checkpoint_dir', '/tmp')
+        ck_dir = cfg.get('checkpoint_dir', './log')
         os.makedirs(ck_dir, exist_ok=True)
         self.ck_dir = ck_dir
         while already_sampled < cfg['sample_count']:
@@ -158,7 +158,8 @@ class LatencyPredictor:
                 # generated model is not legal
                 continue
             already_sampled += 1
-            latency = measure_latency(net, self.dummy_input, cfg)
+            module_level = cfg.get('submodule_level', 0)
+            latency = measure_latency(net, self.dummy_input, cfg, level=module_level)
             _logger.info('Latency : %f', sum(latency)/len(latency))
             print('Measured Latency', latency)
             self.measured_data.append((get_channel_list(net), latency))
@@ -174,7 +175,8 @@ class LatencyPredictor:
         label = []
         for channel_cfg, latencies in self.measured_data:
             data.append(channel_cfg)
-            _start, _end = 0, len(latencies)
+            # latencies[model] stores the latency of the whole model
+            _start, _end = 0, len(latencies['model'])
             if 'warmup_ratio' in cfg:
                 _start = cfg['warmup_ratio'] * _end
             label.append(sum(latencies[_start:]) / len(latencies[_start:]))

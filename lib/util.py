@@ -11,7 +11,7 @@ from sklearn.ensemble import RandomForestRegressor
 _logger = logging.getLogger(__name__)
 
 
-def measure_latency(model, dummy_input, cfg):
+def measure_module_latency(model, dummy_input, cfg):
     """
     measure the latency for the model.
     """
@@ -23,13 +23,71 @@ def measure_latency(model, dummy_input, cfg):
         torch.onnx.export(model, dummy_input, onnx_path)
         if cfg['device'] == 'gpu':
             assert torch.cuda.is_available()
-            latency = onnx_run_gpu(onnx_path, dummy_input, runtimes=repeat_times)
+            latency = onnx_run_gpu(
+                onnx_path, dummy_input, runtimes=repeat_times)
         elif cfg['device'] == 'cpu':
-            latency = onnx_run_cpu(onnx_path, dummy_input, run_times=repeat_times)
+            latency = onnx_run_cpu(
+                onnx_path, dummy_input, run_times=repeat_times)
         else:
             pass
     return latency
 
+
+def dummy_input_forward_hook(inputs_dict, name):
+    def forward_hook(module, inputs, output):
+        inputs_dict[name] = inputs
+    return forward_hook
+
+
+def measure_latency(model, dummy_input, cfg, level=0):
+    """
+    measure the latency for the target model and its submodules.
+    Parameters
+    ----------
+    model: torch.nn.Module
+        The target model to measure the latency
+    dummy_input: torch.tensor
+        The dummy input for model to measure the latency. Note that,
+        the dummy input should be on the same device with the model.
+    cfg: dict
+        Configure of the latency measurement environment, for example,
+        the inference engine and the device(CPU/GPU).
+    level: int
+        If level is larger than 0, we will also measure the latencies of
+        submodules whose level is less than `level`. For example, the level
+        of layer1.0.conv1 is 3.
+    """
+    latencies = {}
+    # measure the latency of the whole model first
+    model_latency = measure_module_latency(model, dummy_input, cfg)
+    latencies['model'] = model_latency
+    if level == 0:
+        return latencies
+    module_dummy_inputs = {}
+
+    def forward_hook(module, inputs, output):
+        # save the dummy_input for the module
+        module.dummy_input = inputs
+
+    hooks = []
+    # register the forward hook for all the modules
+    for name, module in model.named_modules:
+        hook_handle = module.register_forward_hook(
+            dummy_input_forward_hook(module_dummy_inputs, name))
+        hooks.append(hook_handle)
+    # forward inference
+    model(dummy_input)
+    for hook_handle in hooks:
+        hook_handle.remove()
+    # measure the latency for the submodules whose level is smaller
+    # than `level`
+    for name, module in model.named_modules():
+        tmp = name.split('.')
+        if len(tmp) > level:
+            continue
+        module_latency = measure_module_latency(module, module_dummy_inputs[name], cfg)
+        latencies[name] = module_latency
+    return latencies
 
 def to_numpy(tensor):
     return tensor.detach().cpu().numpy() if tensor.requires_grad else tensor.cpu().numpy()
@@ -54,6 +112,7 @@ def get_channel_list(model):
         if isinstance(module, nn.Conv2d):
             channels.append(module.out_channels)
     return channels
+
 
 def create_predictor(algo):
     if algo == 'randomforest':

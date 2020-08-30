@@ -67,7 +67,10 @@ def measure_latency(model, dummy_input, cfg, level=0):
 
     def forward_hook(module, inputs, output):
         # save the dummy_input for the module
-        module.dummy_input = inputs
+        errmsg = 'currently only can measure the model with\
+            one input tensor,{} has {} inputs'.format(module, len(inputs))
+        assert(len(inputs) == 1), errmsg
+        module.dummy_input = inputs[0]
 
     hooks = []
     # register the forward hook for all the modules

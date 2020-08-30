@@ -71,7 +71,7 @@ def measure_latency(model, dummy_input, cfg, level=0):
 
     hooks = []
     # register the forward hook for all the modules
-    for name, module in model.named_modules:
+    for name, module in model.named_modules():
         hook_handle = module.register_forward_hook(
             dummy_input_forward_hook(module_dummy_inputs, name))
         hooks.append(hook_handle)

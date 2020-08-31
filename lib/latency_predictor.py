@@ -163,6 +163,7 @@ class LatencyPredictor:
             _logger.info('Latency : %f', sum(latency['model'])/len(latency['model']))
             print('Measured Latency', latency)
             self.measured_data.append((get_channel_list(net), latency))
+            del net
         # save the measured data to the checkpoint dirpath
         with open(os.path.join(ck_dir, 'raw_data.json'), 'w') as jf:
             json.dump(self.measured_data, jf)

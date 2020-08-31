@@ -1,4 +1,4 @@
-sample_count: 500
+sample_count: 200
 device: gpu
 engine: onnxruntime
 checkpoint_dir: ./data_resnet101

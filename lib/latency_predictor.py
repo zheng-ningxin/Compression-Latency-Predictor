@@ -17,7 +17,7 @@ from nni.compression.torch.utils.shape_dependency import ChannelDependency, Grou
 from nni.compression.torch import Constrained_L1FilterPruner
 from nni.compression.torch import ModelSpeedup
 from .util import *
-
+import gc
 _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.INFO)
 
@@ -164,6 +164,7 @@ class LatencyPredictor:
             print('Measured Latency', latency)
             self.measured_data.append((get_channel_list(net), latency))
             del net
+            gc.collect()
         # save the measured data to the checkpoint dirpath
         with open(os.path.join(ck_dir, 'raw_data.json'), 'w') as jf:
             json.dump(self.measured_data, jf)

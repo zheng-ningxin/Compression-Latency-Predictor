@@ -75,5 +75,6 @@ def onnx_run_gpu(onnx_model, dummy_input, runtimes=3):
         latencies.append(end_time - start_time)
     return latencies
 
-def onnx_run_arm():
+def onnx_run_arm(onnx_model, dummy_input, run_times):
+    
     pass

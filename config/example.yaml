@@ -1,5 +1,5 @@
 sample_count: 5000
-device: cpu
+device: gpu
 engine: onnxruntime
 checkpoint_dir: ./data_resnet101
 regression_algo: randomforest

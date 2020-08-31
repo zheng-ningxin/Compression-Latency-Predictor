@@ -5,3 +5,4 @@ checkpoint_dir: ./data_resnet101
 regression_algo: randomforest
 repeat_times: 100
 warmup_ratio: 0.1
+submodule_level: 1

@@ -146,10 +146,10 @@ class LatencyPredictor:
             if i == len(space):
                 pattern_list.append(copy.deepcopy(tmp_cfg))
                 return
-            pattern_name = space[i]
-            for sparsity in np.arange(space[i]['start'], space[i]['end'], space[i]['step']):
-                cfg[pattern_name] = sparsity
-                traverse_cfg_space(pattern_list, space, i+1, tmp_cfg )
+            for pattern_name in space[i]:
+                for sparsity in np.arange(space[i][pattern_name]['start'], space[i][pattern_name]['end'], space[i][pattern_name]['step']):
+                    tmp_cfg[pattern_name] = sparsity
+                    traverse_cfg_space(pattern_list, space, i+1, tmp_cfg )
 
         if 'specified_sample_space' not in cfg:
             return []
@@ -157,14 +157,19 @@ class LatencyPredictor:
         CFGs = []
         for space in cfg['specified_sample_space']:
             traverse_cfg_space(cfg_patterns, space, 0, {})
+        print('PATTERNS')
+        print(cfg_patterns)
         for cfg_pattern in cfg_patterns:
             cfg_list = []
             for name, _ in self.bound_model.named_modules():
                 for pattern in cfg_pattern:
                     if re.match(pattern, name):
+                        print(pattern, name)
                         cfg_list.append({'op_types': ['Conv2d'], 'op_names': [
                                    name], 'sparsity': cfg_pattern[pattern]})
             CFGs.append(cfg_list)
+        print(CFGs)
+        print('Len Specified', len(CFGs))
         return CFGs
 
     def generate_cfg(self, cfg):
@@ -172,6 +177,7 @@ class LatencyPredictor:
         sparsity_cfgs.extend(self.generate_specified_cfg(cfg))
         for i in range(len(sparsity_cfgs), cfg['sample_count']):
             sparsity_cfgs.append(self.generate_random_cfg(cfg))
+        print('total configs', len(sparsity_cfgs))
         return sparsity_cfgs
 
     def generate_dataset(self, cfgpath):
@@ -200,7 +206,8 @@ class LatencyPredictor:
         sparsity_cfgs = self.generate_cfg(cfg)
         for already_sampled, cfglist in enumerate(sparsity_cfgs):
             _logger.info('Sample the %d-th model', already_sampled+1)
-            _logger.info('Sparsity config', str(cfglist))
+            print(cfglist)
+            # _logger.info('Sparsity config', str(cfglist))
             net = self.generate_model(cfglist)
             if net is None:
                 # generated model is not legal

@@ -3,4 +3,4 @@ device: gpu
 engine: onnxruntime
 checkpoint_dir: ./data
 repeat_times: 100
-submodule_level: 2
+submodule_level: 1

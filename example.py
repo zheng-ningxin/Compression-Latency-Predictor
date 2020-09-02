@@ -7,4 +7,5 @@ from lib.latency_predictor import LatencyPredictor
 net = torchvision.models.mobilenet_v2().cuda()
 
 lp = LatencyPredictor(net, torch.zeros(16, 3, 224, 224).cuda())
-lp.build('./config/example.yaml')
+# lp.build('./config/example.yaml')
+lp.build('./config/mobilenet.yaml')

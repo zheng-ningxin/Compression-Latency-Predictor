@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 import os
+import re
 import traceback
 import copy
 import json
@@ -9,6 +10,7 @@ import random
 import logging
 import torch
 import joblib
+import numpy as np
 import torch.nn as nn
 from torch import Tensor
 
@@ -93,14 +95,11 @@ class LatencyPredictor:
         ms.speedup_model()
 
         try:
-            print('$$$$$$$')
             model(self.dummy_input)
             print('Success inference')
         except Exception as err:
             _logger.warn('The updated model may have shape conflicts')
             _logger.warn(err)
-            print(err)
-            print('###########')
             traceback.print_exc()
             # the model is not valid, it has shape conflict
             # under the
@@ -108,14 +107,14 @@ class LatencyPredictor:
 
         return model
 
-    def generate_cfg(self):
+    def generate_random_cfg(self, cfg):
+        
         cfglist = []
         channel_d_sets = self.channel_depen.dependency_sets
         # group_d_sets = self.group_depen.dependency
         for _set in channel_d_sets:
-
             if random.uniform(0, 1) > 0.7:
-                # there is 50% probability that we donnot
+                # there is 70% probability that we donnot
                 # prune these layers
                 continue
             else:
@@ -127,7 +126,55 @@ class LatencyPredictor:
                                    layer], 'sparsity': sparsity})
         return cfglist
 
-    def build(self, cfgpath):
+    def generate_specified_cfg(self, cfg):
+        """
+        Generate the channel sparsity cfg according to the cfg if needed,
+        if the specified sparsity config already run out or there is no
+        specified sparsity search space, then return None:
+
+        Parameters
+        ----------
+        cfg: dict
+            the dict object read from the config file
+        Returns
+        -------
+        cfg_list: list or None
+            if there are specified configs not visited yet, then return one
+            sparsity config in the specified sparsity space, else return None.
+        """
+        def traverse_cfg_space(pattern_list, space, i, tmp_cfg):
+            if i == len(space):
+                pattern_list.append(copy.deepcopy(tmp_cfg))
+                return
+            pattern_name = space[i]
+            for sparsity in np.arange(space[i]['start'], space[i]['end'], space[i]['step']):
+                cfg[pattern_name] = sparsity
+                traverse_cfg_space(pattern_list, space, i+1, tmp_cfg )
+
+        if 'specified_sample_space' not in cfg:
+            return []
+        cfg_patterns = []
+        CFGs = []
+        for space in cfg['specified_sample_space']:
+            traverse_cfg_space(cfg_patterns, space, 0, {})
+        for cfg_pattern in cfg_patterns:
+            cfg_list = []
+            for name, _ in self.bound_model.named_modules():
+                for pattern in cfg_pattern:
+                    if re.match(pattern, name):
+                        cfg_list.append({'op_types': ['Conv2d'], 'op_names': [
+                                   name], 'sparsity': cfg_pattern[pattern]})
+            CFGs.append(cfg_list)
+        return CFGs
+
+    def generate_cfg(self, cfg):
+        sparsity_cfgs = []
+        sparsity_cfgs.extend(self.generate_specified_cfg())
+        for i in range(len(sparsity_cfgs), cfg['sample_count']):
+            sparsity_cfgs.append(self.generate_random_cfg())
+        return sparsity_cfgs
+
+    def generate_dataset(self, cfgpath):
         """
         Sample `sample_count` models that have different
         channel numbers with the origanl model. Measure
@@ -150,9 +197,10 @@ class LatencyPredictor:
         ck_dir = cfg.get('checkpoint_dir', './log')
         os.makedirs(ck_dir, exist_ok=True)
         self.ck_dir = ck_dir
-        while already_sampled < cfg['sample_count']:
-            print(already_sampled)
-            cfglist = self.generate_cfg()
+        sparsity_cfgs = self.generate_cfg(cfg)
+        for already_sampled, cfglist in enumerate(sparsity_cfgs):
+            _logger.info('Sample the %d-th model', already_sampled+1)
+            _logger.info('Sparsity config', str(cfglist))
             net = self.generate_model(cfglist)
             if net is None:
                 # generated model is not legal
@@ -168,6 +216,8 @@ class LatencyPredictor:
         # save the measured data to the checkpoint dirpath
         with open(os.path.join(ck_dir, 'raw_data.json'), 'w') as jf:
             json.dump(self.measured_data, jf)
+
+
     #     # build the latency predictor
     #     regression_algo = cfg.get('regression_algo', 'randomforest')
     #     self.predictor = create_predictor(regression_algo)

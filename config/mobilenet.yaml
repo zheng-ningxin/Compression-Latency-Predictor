@@ -1,0 +1,21 @@
+sample_count: 200
+device: gpu
+engine: onnxruntime
+checkpoint_dir: ./data
+repeat_times: 100
+submodule_level: 1
+specified_sample_space:
+  - sampleset-1:
+    - features.%d.conv.0.0:
+      - start: 0.1
+      - end: 1.0
+      - step: 0.1
+    - features.%d.conv.2:
+      - start: 0.1
+      - end: 1.0
+      - step: 0.1
+  - sampleset-2:
+    - features.%d.conv.1.0:
+      - start: 0.1
+      - end: 1.0
+      - step: 0.1 

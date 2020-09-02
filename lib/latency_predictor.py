@@ -148,7 +148,7 @@ class LatencyPredictor:
                 return
             for pattern_name in space[i]:
                 for sparsity in np.arange(space[i][pattern_name]['start'], space[i][pattern_name]['end'], space[i][pattern_name]['step']):
-                    tmp_cfg[pattern_name] = sparsity
+                    tmp_cfg[pattern_name] = round(sparsity, 2)
                     traverse_cfg_space(pattern_list, space, i+1, tmp_cfg )
 
         if 'specified_sample_space' not in cfg:

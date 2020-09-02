@@ -169,9 +169,9 @@ class LatencyPredictor:
 
     def generate_cfg(self, cfg):
         sparsity_cfgs = []
-        sparsity_cfgs.extend(self.generate_specified_cfg())
+        sparsity_cfgs.extend(self.generate_specified_cfg(cfg))
         for i in range(len(sparsity_cfgs), cfg['sample_count']):
-            sparsity_cfgs.append(self.generate_random_cfg())
+            sparsity_cfgs.append(self.generate_random_cfg(cfg))
         return sparsity_cfgs
 
     def generate_dataset(self, cfgpath):

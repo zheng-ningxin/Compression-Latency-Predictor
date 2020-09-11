@@ -8,6 +8,7 @@ specified_sample_space:
   - 
     - features.\d.conv.0.0: {start: 0.1,  end: 1.0, step: 0.1}
     - features.\d.conv.2: {start: 0.1,  end: 1.0, step: 0.1}
+    
   -
     - features.\d.conv.1.0: {start: 0.1,  end: 1.0, step: 0.1}
 

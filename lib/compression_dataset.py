@@ -24,7 +24,7 @@ _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.INFO)
 
 
-class LatencyPredictor:
+class CompressionLatencyDataset:
     def __init__(self, model, dummy_input):
         """
         Latency predictor that predicts the latency of a specific
@@ -223,40 +223,3 @@ class LatencyPredictor:
         # save the measured data to the checkpoint dirpath
         with open(os.path.join(ck_dir, 'raw_data.json'), 'w') as jf:
             json.dump(self.measured_data, jf)
-
-
-    #     # build the latency predictor
-    #     regression_algo = cfg.get('regression_algo', 'randomforest')
-    #     self.predictor = create_predictor(regression_algo)
-    #     if self.predictor is None:
-    #         raise RuntimeError('Not Supported regression algorithm')
-    #     data = []
-    #     label = []
-    #     for channel_cfg, latencies in self.measured_data:
-    #         data.append(channel_cfg)
-    #         # latencies[model] stores the latency of the whole model
-    #         _start, _end = 0, len(latencies['model'])
-    #         if 'warmup_ratio' in cfg:
-    #             _start = cfg['warmup_ratio'] * _end
-    #         label.append(sum(latencies[_start:]) / len(latencies[_start:]))
-    #     self.predictor.fit(data, label)
-
-    # def predict(self, model):
-    #     if self.predictor is None:
-    #         _logger.error('Please build the predictor or load an existing predictor first')
-    #         return None
-    #     n_channels = get_channel_list(model)
-    #     latency = self.predictor.predict(n_channels)
-    #     return latency
-
-    # def load(self, ckpath):
-    #     """
-    #     load an existing predictor.
-    #     """
-    #     self.predictor = joblib.load(ckpath)
-
-    # def export(self, savepath):
-    #     """
-    #     export the predictor model to the specified path.
-    #     """
-    #     joblib.dump(self.predictor, savepath)

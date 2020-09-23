@@ -20,7 +20,8 @@ def conv1x1(in_planes, out_planes, stride=1):
 
 class MeanModule(nn.Module):
     def forward(self, x):
-        return x.mean([2, 3])
+        # return x.mean([2, 3])
+        return torch.mean(x, [2, 3])
 
 
 def get_channel_count(module_list, dummy_input):

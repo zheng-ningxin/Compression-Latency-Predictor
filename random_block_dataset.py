@@ -12,7 +12,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', required=True,
                         help='The path of the config file')
-    parser.add_argument('--outdir', default='./data', help='R')
+    parser.add_argument('--outdir', default='./data', help='Output directory')
     return parser.parse_args()
 
 def main():
@@ -22,13 +22,14 @@ def main():
         config = yaml.safe_load(conf_f)
 
     for i in range(config['sample_count']):
+        print('Sample %d random block models' % i)
         model = generate_model(config)
         dummy_input = torch.ones(1, 3, 224, 224)
         dummy_output = model(dummy_input)
         # print(model)
         module_level = config.get('submodule_level', 0)
 
-        latency = measure_latency(model, dummy_input, module_level)
+        latency = measure_latency(model, dummy_input, config, module_level)
         file_name = 'random_block_%d.json'
         file_name = os.path.join(args.out_dir, file_name)
         result = [str(model), latency]

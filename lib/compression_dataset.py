@@ -108,7 +108,7 @@ class CompressionLatencyDataset:
         return model
 
     def generate_random_cfg(self, cfg):
-        
+
         cfglist = []
         channel_d_sets = self.channel_depen.dependency_sets
         # group_d_sets = self.group_depen.dependency
@@ -149,7 +149,7 @@ class CompressionLatencyDataset:
             for pattern_name in space[i]:
                 for sparsity in np.arange(space[i][pattern_name]['start'], space[i][pattern_name]['end'], space[i][pattern_name]['step']):
                     tmp_cfg[pattern_name] = round(sparsity, 2)
-                    traverse_cfg_space(pattern_list, space, i+1, tmp_cfg )
+                    traverse_cfg_space(pattern_list, space, i+1, tmp_cfg)
 
         if 'specified_sample_space' not in cfg:
             return []
@@ -166,7 +166,7 @@ class CompressionLatencyDataset:
                     if re.match(pattern, name):
                         print(pattern, name)
                         cfg_list.append({'op_types': ['Conv2d'], 'op_names': [
-                                   name], 'sparsity': cfg_pattern[pattern]})
+                            name], 'sparsity': cfg_pattern[pattern]})
             CFGs.append(cfg_list)
         print(CFGs)
         print('Len Specified', len(CFGs))
@@ -214,8 +214,10 @@ class CompressionLatencyDataset:
                 continue
             already_sampled += 1
             module_level = cfg.get('submodule_level', 0)
-            latency = measure_latency(net, self.dummy_input, cfg, level=module_level)
-            _logger.info('Latency : %f', sum(latency['model'])/len(latency['model']))
+            latency = measure_latency(
+                net, self.dummy_input, cfg, level=module_level)
+            _logger.info('Latency : %f', sum(
+                latency['model'])/len(latency['model']))
             print('Measured Latency', latency)
             self.measured_data.append((get_channel_list(net), latency))
             del net

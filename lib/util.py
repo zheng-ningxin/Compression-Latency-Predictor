@@ -20,6 +20,8 @@ def measure_module_latency(model, dummy_input, cfg):
     repeat_times = cfg.get('repeat_times', 10)
     if cfg['engine'] == 'onnxruntime':
         onnx_path = os.path.join(data_dir, 'onnx.onnx')
+        if os.path.exists(onnx_path):
+            os.remove(onnx_path)
         torch.onnx.export(model, dummy_input, onnx_path)
         if cfg['device'] == 'gpu':
             assert torch.cuda.is_available()

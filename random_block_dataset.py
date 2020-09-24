@@ -24,6 +24,8 @@ def main():
     for i in range(config['sample_count']):
         print('Sample %d random block models' % i)
         model = generate_model(config)
+        if model is None:
+            continue
         dummy_input = torch.ones(1, 3, 224, 224)
         dummy_output = model(dummy_input)
         # print(model)
@@ -31,7 +33,7 @@ def main():
 
         latency = measure_latency(model, dummy_input, config, module_level)
         file_name = 'random_block_%d.json'
-        file_name = os.path.join(args.out_dir, file_name)
+        file_name = os.path.join(args.outdir, file_name)
         result = [str(model), latency]
         with open(file_name, 'w') as jf:
             json.dump(result, jf)

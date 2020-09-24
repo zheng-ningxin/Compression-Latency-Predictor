@@ -18,10 +18,10 @@ def conv1x1(in_planes, out_planes, stride=1):
     """1x1 convolution"""
     return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
 
-class MeanModule(nn.Module):
+class FlattenModule(nn.Module):
     def forward(self, x):
         # return x.mean([2, 3])
-        return torch.mean(x, [2, 3])
+        return torch.flatten(x, 1)
 
 
 def get_channel_count(module_list, dummy_input):
@@ -117,20 +117,24 @@ APPEND_FUNC = [append_basicblock, append_bottleneck, append_invertedresidual, ap
                append_inception_d, append_inception_e]
 
 def generate_model(config):
-    n_classes = 1000
-    # module_list = nn.ModuleList()
-    module_list = []
-    dummy_input = torch.ones(1, 3, 224, 224)
-    block_count = config['block_count']
-    for block_id in range(block_count):
-        block_type =  random.randint(0, 9)
-        APPEND_FUNC[block_type](module_list, dummy_input, config)
-    module_list.append(MeanModule())
-    x = dummy_input
-    for block in module_list:
-        x = block(x)
-    # print(x.size())
-    module_list.append(nn.Linear(x.size(1), n_classes))
-    model = nn.Sequential(*module_list)
+    try:
+        n_classes = 1000
+        # module_list = nn.ModuleList()
+        module_list = []
+        dummy_input = torch.ones(1, 3, 224, 224)
+        block_count = config['block_count']
+        for block_id in range(block_count):
+            block_type =  random.randint(0, 9)
+            APPEND_FUNC[block_type](module_list, dummy_input, config)
+        module_list.append(FlattenModule())
+        x = dummy_input
+        for block in module_list:
+            x = block(x)
+        # print(x.size())
+        module_list.append(nn.Linear(x.size(1), n_classes))
+        model = nn.Sequential(*module_list)
+    except Exception as err:
+        print(err)
+        model = None
     return model
 

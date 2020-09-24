@@ -30,9 +30,12 @@ def main():
         dummy_output = model(dummy_input)
         # print(model)
         module_level = config.get('submodule_level', 0)
-
-        latency = measure_latency(model, dummy_input, config, module_level)
-        file_name = 'random_block_%d.json'
+        try:
+            latency = measure_latency(model, dummy_input, config, module_level)
+        except Exception as err:
+            print(err)
+            continue
+        file_name = 'random_block_%d.json' % i
         file_name = os.path.join(args.outdir, file_name)
         result = [str(model), latency]
         with open(file_name, 'w') as jf:

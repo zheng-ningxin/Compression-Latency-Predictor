@@ -116,12 +116,11 @@ APPEND_FUNC = [append_basicblock, append_bottleneck, append_invertedresidual, ap
                append_inception, append_inception_a, append_inception_b, append_inception_c,
                append_inception_d, append_inception_e]
 
-def generate_model(config):
+def generate_model(config, dummy_input):
     try:
         n_classes = 1000
         # module_list = nn.ModuleList()
         module_list = []
-        dummy_input = torch.ones(1, 3, 224, 224)
         block_count = config['block_count']
         for block_id in range(block_count):
             block_type =  random.randint(0, 9)

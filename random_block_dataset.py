@@ -18,15 +18,19 @@ def parse_args():
 def main():
     args = parse_args()
     os.makedirs(args.outdir, exist_ok=True)
+    # find the number of the models already saved in the outdir
+    _files = next(os.walk(args,outdir))[2]
+    file_count = len(_files)
     with open(args.config, 'r') as conf_f:
         config = yaml.safe_load(conf_f)
 
-    for i in range(config['sample_count']):
+    for i in range(file_count, file_count + config['sample_count']):
         print('Sample %d random block models' % i)
-        model = generate_model(config)
+        dummy_input = torch.ones(16, 3, 224, 224)
+        model = generate_model(config, dummy_input)
         if model is None:
             continue
-        dummy_input = torch.ones(1, 3, 224, 224)
+
         dummy_output = model(dummy_input)
         # print(model)
         module_level = config.get('submodule_level', 0)

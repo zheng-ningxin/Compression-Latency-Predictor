@@ -19,7 +19,7 @@ def main():
     args = parse_args()
     os.makedirs(args.outdir, exist_ok=True)
     # find the number of the models already saved in the outdir
-    _files = next(os.walk(args,outdir))[2]
+    _files = next(os.walk(args.outdir))[2]
     file_count = len(_files)
     with open(args.config, 'r') as conf_f:
         config = yaml.safe_load(conf_f)

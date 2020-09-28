@@ -45,7 +45,7 @@ def append_basicblock(module_list, dummy_input, config):
     block = BasicBlock(in_planes, planes, stride=stride, downsample=downsample).to(dummy_input.device)
     module_list.append(block)
     # return the configuration of the block
-    return {'inplanes':in_planes, 'planes':planes, 'stride': stride, 'downsample':downsample}
+    return {'inplanes':in_planes, 'planes':planes, 'stride': stride, 'downsample':str(downsample)}
 
 def append_bottleneck(module_list, dummy_input, config):
     in_planes = get_channel_count(module_list, dummy_input)
@@ -60,7 +60,7 @@ def append_bottleneck(module_list, dummy_input, config):
         )
     block = Bottleneck(in_planes, planes, stride=stride, downsample=downsample).to(dummy_input.device)
     module_list.append(block)
-    return {'inplanes':in_planes, 'planes':planes, 'stride':stride, 'downsample':downsample}
+    return {'inplanes':in_planes, 'planes':planes, 'stride':stride, 'downsample':str(downsample)}
 
 def append_invertedresidual(module_list, dummy_input, config):
     in_planes = get_channel_count(module_list, dummy_input)
@@ -89,20 +89,20 @@ def append_inception(module_list, dummy_input, config):
     block = Inception(*args).to(dummy_input.device)
     module_list.append(block)
     return {'in_channels':in_channel, 'ch1x1':branch_channels[0], 'ch3x3red':branch_channels[1], 'ch3x3':branch_channels[2], 'ch5x5red':branch_channels[3],
-            'ch5x5':branch_channels[4], 'pool_proj':branch_channels[5], 'conv_block':BasicConv2d}
+            'ch5x5':branch_channels[4], 'pool_proj':branch_channels[5], 'conv_block':str(BasicConv2d)}
 
 def append_inception_a(module_list, dummy_input, config):
     in_channel = get_channel_count(module_list, dummy_input)
     pool_feature = random.choice(config['out_channel'])
     block = InceptionA(in_channel, pool_feature, BasicConv2d).to(dummy_input.device)
     module_list.append(block)
-    return {'in_channels':in_channel, 'pool_features':pool_feature, 'conv_block':BasicConv2d}
+    return {'in_channels':in_channel, 'pool_features':pool_feature, 'conv_block':str(BasicConv2d)}
 
 def append_inception_b(module_list, dummy_input, config):
     in_channel = get_channel_count(module_list, dummy_input)
     block = InceptionB(in_channel, BasicConv2d).to(dummy_input.device)
     module_list.append(block)
-    return {'in_channels':in_channel, 'conv_block':BasicConv2d}
+    return {'in_channels':in_channel, 'conv_block':str(BasicConv2d)}
 
 
 def append_inception_c(module_list, dummy_input, config):
@@ -110,20 +110,20 @@ def append_inception_c(module_list, dummy_input, config):
     channel7x7 = random.choice(config['out_channel'])
     block = InceptionC(in_channel, channel7x7, BasicConv2d).to(dummy_input.device)
     module_list.append(block)
-    return {'in_channels':in_channel, 'channels_7x7':channel7x7, 'conv_block':BasicConv2d}
+    return {'in_channels':in_channel, 'channels_7x7':channel7x7, 'conv_block':str(BasicConv2d)}
 
 def append_inception_d(module_list, dummy_input, config):
     in_channel = get_channel_count(module_list, dummy_input)
     block = InceptionD(in_channel, BasicConv2d).to(dummy_input.device)
     module_list.append(block)
-    return {'in_channels':in_channel, 'conv_block':BasicConv2d}
+    return {'in_channels':in_channel, 'conv_block':str(BasicConv2d)}
 
 
 def append_inception_e(module_list, dummy_input, config):
     in_channel = get_channel_count(module_list, dummy_input)
     block = InceptionE(in_channel, BasicConv2d).to(dummy_input.device)
     module_list.append(block)
-    return {'in_channels':in_channel, 'conv_block':BasicConv2d}
+    return {'in_channels':in_channel, 'conv_block':str(BasicConv2d)}
     
 
 

@@ -15,22 +15,26 @@ def parse_args():
     parser.add_argument('--outdir', default='./data', help='Output directory')
     return parser.parse_args()
 
+def get_file_count(outdir):
+    _files = next(os.walk(outdir))[2]
+    file_count = len(_files)
+    return file_count
+
 def main():
     args = parse_args()
     os.makedirs(args.outdir, exist_ok=True)
     # find the number of the models already saved in the outdir
-    _files = next(os.walk(args.outdir))[2]
-    file_count = len(_files)
     with open(args.config, 'r') as conf_f:
         config = yaml.safe_load(conf_f)
 
-    for i in range(file_count, file_count + config['sample_count']):
+    for i in range(config['sample_count']):
         print('Sample %d random block models' % i)
         dummy_input = torch.ones(16, 3, 224, 224)
         model = generate_model(config, dummy_input)
         if model is None:
             continue
-
+        # model=model.cuda()
+        model.eval()
         dummy_output = model(dummy_input)
         # print(model)
         module_level = config.get('submodule_level', 0)
@@ -39,7 +43,8 @@ def main():
         except Exception as err:
             print(err)
             continue
-        file_name = 'random_block_%d.json' % i
+        file_count = get_file_count(args.outdir)
+        file_name = 'random_block_%d.json' % file_count
         file_name = os.path.join(args.outdir, file_name)
         result = [str(model), latency]
         with open(file_name, 'w') as jf:

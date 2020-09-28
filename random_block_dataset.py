@@ -30,7 +30,7 @@ def main():
     for i in range(config['sample_count']):
         print('Sample %d random block models' % i)
         dummy_input = torch.ones(16, 3, 224, 224)
-        model = generate_model(config, dummy_input)
+        model, model_config = generate_model(config, dummy_input)
         if model is None:
             continue
         # model=model.cuda()
@@ -46,7 +46,7 @@ def main():
         file_count = get_file_count(args.outdir)
         file_name = 'random_block_%d.json' % file_count
         file_name = os.path.join(args.outdir, file_name)
-        result = [str(model), latency]
+        result = [model_config, str(model), latency]
         with open(file_name, 'w') as jf:
             json.dump(result, jf)
 

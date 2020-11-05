@@ -11,8 +11,8 @@ from torchvision.models.mobilenet import InvertedResidual
 from torchvision.models.googlenet import BasicConv2d, Inception, InceptionAux
 from torchvision.models.inception import InceptionA, InceptionB, InceptionC, InceptionD, InceptionE
 
-BLOCKS = [BasicBlock, Bottleneck, InvertedResidual, BasicConv2d, Inception,
-          InceptionA, InceptionB, InceptionC, InceptionD, InceptionE]
+BLOCKS = [BasicBlock, Bottleneck, InvertedResidual, BasicConv2d, Inception]
+        #   InceptionA, InceptionB, InceptionC, InceptionD, InceptionE]
 
 def conv1x1(in_planes, out_planes, stride=1):
     """1x1 convolution"""

@@ -5,6 +5,6 @@ checkpoint_dir: ./data
 repeat_times: 100
 submodule_level: 1
 block_count: 4
-out_channel: [16, 32, 48, 64, 96 , 128, 256, 512]
+out_channel: [16, 32, 48, 64, 96]
 stride: [1, 2]
 expand_ratio: [1, 2]

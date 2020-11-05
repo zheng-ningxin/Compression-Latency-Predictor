@@ -18,7 +18,7 @@ def parse_args():
 def get_file_count(outdir):
     _files = next(os.walk(outdir))[2]
     file_count = len(_files)
-    return file_count
+    return file_count + 1
 
 def main():
     args = parse_args()
@@ -47,6 +47,8 @@ def main():
         file_name = 'random_block_%d.json' % file_count
         file_name = os.path.join(args.outdir, file_name)
         result = [model_config, str(model), latency]
+        print(file_name)
+        print()
         with open(file_name, 'w') as jf:
             json.dump(result, jf)
 

@@ -4,7 +4,7 @@ engine: onnxruntime
 checkpoint_dir: ./data
 repeat_times: 100
 submodule_level: 1
-block_count: 7
-out_channel: [32, 64, 128, 256, 512, 1024]
+block_count: 4
+out_channel: [16, 32, 48, 64, 96 , 128, 256, 512]
 stride: [1, 2]
 expand_ratio: [1, 2]
